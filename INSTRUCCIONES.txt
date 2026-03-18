@@ -1,0 +1,91 @@
+================================================================
+  BRIAV32 · Dashboard Seguimiento Contractual
+  INSTRUCCIONES DE USO Y ACTUALIZACIÓN
+================================================================
+
+ARCHIVOS DE ESTA CARPETA
+----------------------------------------------------------------
+  ACTUALIZAR.bat    → Doble clic para actualizar el dashboard
+  actualizar.py     → Motor del script (no borrar)
+  tmpl_before.dat   → Plantilla HTML parte 1 (no borrar)
+  tmpl_after.dat    → Plantilla HTML parte 2 (no borrar)
+  index.html        → El dashboard (este es el que sube a GitHub)
+  INSTRUCCIONES.txt → Este archivo
+  _chartjs_cache.js → Se crea automáticamente (no borrar)
+  _fonts_cache.css  → Se crea automáticamente (no borrar)
+
+
+REQUISITOS (solo la primera vez)
+----------------------------------------------------------------
+1. Tener Python instalado
+   - Verificar: abrir cmd y escribir: python --version
+   - Si no aparece la versión, descargar en: python.org
+
+2. Instalar librerías necesarias (solo una vez):
+   - Abrir cmd y escribir:
+     pip install pandas openpyxl requests
+
+
+CÓMO ACTUALIZAR EL DASHBOARD
+----------------------------------------------------------------
+PASO 1 · Reemplaza el Excel
+   - Copia el Excel nuevo a esta carpeta
+   - Reemplaza el anterior
+   - El nombre del archivo debe ser exactamente el mismo
+
+PASO 2 · Abre cmd en esta carpeta
+   - Abre esta carpeta en el Explorador de Windows
+   - Haz clic en la barra de dirección (arriba donde dice la ruta)
+   - Escribe:  cmd
+   - Presiona Enter
+
+PASO 3 · Ejecuta el script
+   - En la ventana negra escribe:
+
+     python actualizar.py Libro_Consolidado_Financiero_BRIAV32.xlsx
+
+   - Presiona Enter
+   - Debes ver este mensaje:
+
+       Leyendo: Libro_Consolidado_Financiero_BRIAV32.xlsx
+         150 registros encontrados en 'Base_Unificada'.
+         Datos convertidos: 150 registros.
+       Generando index.html...
+         Listo! Se genero index.html con 150 registros.
+
+PASO 4 · El index.html se actualiza automáticamente
+   - El script reemplaza el index.html con los datos nuevos
+   - No tienes que hacer nada más en tu computador
+
+PASO 5 · Sube el index.html a GitHub
+   - Entra a tu repositorio en github.com
+   - Arrastra el index.html encima de la lista de archivos
+   - GitHub pregunta si deseas reemplazarlo
+   - Clic en "Commit changes"
+   - Dashboard actualizado en línea ✓
+
+
+RESUMEN RÁPIDO
+----------------------------------------------------------------
+  1. Reemplaza el Excel en esta carpeta
+  2. Abre cmd aquí y ejecuta:
+     python actualizar.py Libro_Consolidado_Financiero_BRIAV32.xlsx
+  3. Arrastra el index.html generado a GitHub
+
+
+REQUISITO IMPORTANTE
+----------------------------------------------------------------
+  El Excel siempre debe tener una hoja llamada "Base_Unificada"
+  con las mismas columnas. Si cambias el nombre de la hoja
+  el script mostrará un mensaje de error.
+
+
+SOPORTE
+----------------------------------------------------------------
+  Si el script falla, verifica:
+  - Que el Excel esté en esta misma carpeta
+  - Que el nombre del archivo coincida exactamente
+  - Que la hoja se llame "Base_Unificada"
+  - Que tengas instalado: pip install pandas openpyxl
+
+================================================================

@@ -1,0 +1,230 @@
+;
+const UCOLS=['#1a3a5c','#2e75b6','#27ae60','#c0392b','#6a4c93','#e67e22','#16a085'];
+const UN_ALL=[...new Set(D.map(r=>r.unidad))].sort();
+const TIPOS_ALL=[...new Set(D.map(r=>r.tipo))].sort();
+const VIGS_ALL=[...new Set(D.map(r=>r.vigencia))].sort();
+let fil=[...D],atab='all',sc=null,sd=1,CH={};
+
+function poblar(){
+  const add=(id,arr)=>{const s=document.getElementById(id);arr.forEach(v=>{const o=document.createElement('option');o.value=o.textContent=v;s.appendChild(o);});};
+  add('fV',VIGS_ALL);add('fU',UN_ALL);add('fT',TIPOS_ALL);
+}
+
+const fmtCOP=v=>v?'$'+Math.round(v).toLocaleString('es-CO'):'—';
+const fmtB=v=>v?'$'+Math.round(v).toLocaleString('es-CO'):'—';
+
+function go(){
+  const v=document.getElementById('fV').value,u=document.getElementById('fU').value,
+        t=document.getElementById('fT').value,q=document.getElementById('fQ').value.toLowerCase().trim();
+  fil=D.filter(r=>{
+    if(v&&r.vigencia!==v)return false;
+    if(u&&r.unidad!==u)return false;
+    if(t&&r.tipo!==t)return false;
+    if(q&&!Object.values(r).some(x=>typeof x==='string'&&x.toLowerCase().includes(q)))return false;
+    return true;
+  });
+  if(sc)doSort();
+  kpis();charts();render();
+}
+
+function reset(){
+  ['fV','fU','fT'].forEach(i=>document.getElementById(i).value='');
+  document.getElementById('fQ').value='';
+  atab='all';document.querySelectorAll('.tab').forEach((t,i)=>t.classList.toggle('act',i===0));
+  go();
+}
+
+function setTab(t,el){atab=t;document.querySelectorAll('.tab').forEach(x=>x.classList.remove('act'));el.classList.add('act');render();}
+function tabData(){return atab==='all'?fil:fil.filter(r=>r.tipo===atab);}
+
+function kpis(){
+  const d=fil;
+  const cx=d.filter(r=>r.tipo==='CXP'),rs=d.filter(r=>r.tipo==='Reservas'),lq=d.filter(r=>r.tipo==='Liquidaciones');
+  const pro=d.filter(r=>r.fecha_prorroga&&r.fecha_prorroga!='').length;
+  document.getElementById('kVC').textContent=fmtB(d.reduce((a,r)=>a+r.valor_contrato,0));
+  document.getElementById('kCXP').textContent=fmtB(cx.reduce((a,r)=>a+r.valor_cxp,0));
+  document.getElementById('kCXPn').textContent=cx.length+' contratos';
+  document.getElementById('kRES').textContent=fmtB(rs.reduce((a,r)=>a+r.valor_reserva,0));
+  document.getElementById('kRESn').textContent=rs.length+' contratos';
+  document.getElementById('kLIQ').textContent=lq.length;
+  document.getElementById('kLIQn').textContent='en proceso';
+  document.getElementById('kREG').textContent=d.length;
+  document.getElementById('kPRO').textContent=pro;
+  document.getElementById('cntTag').textContent=d.length+' registros';
+}
+
+function dc(id,cfg){if(CH[id]){CH[id].destroy();delete CH[id];}const el=document.getElementById(id);if(el)CH[id]=new Chart(el,cfg);}
+
+function charts(){
+  const d=fil;
+  // Bar chart - valor por unidad
+  const barVals=UN_ALL.map(u=>+(d.filter(r=>r.unidad===u).reduce((a,r)=>a+r.valor_contrato,0)/1e9).toFixed(1));
+  document.getElementById('cBtotal').textContent=fmtB(d.reduce((a,r)=>a+r.valor_contrato,0));
+  dc('cBar',{type:'bar',data:{
+    labels:UN_ALL,
+    datasets:[{
+      label:'Valor (B COP)',
+      data:barVals,
+      backgroundColor:UCOLS,
+      borderColor:UCOLS.map(c=>c),
+      borderWidth:0,borderRadius:3,
+    }]
+  },options:{
+    responsive:true,maintainAspectRatio:false,
+    plugins:{legend:{display:false},tooltip:{callbacks:{label:function(ctx){return' $'+Math.round(ctx.raw*1e9).toLocaleString('es-CO')+' COP';}}}},
+    scales:{
+      x:{ticks:{color:'#3b4a5a',font:{size:9,family:'Roboto'}},grid:{display:false}},
+      y:{ticks:{color:'#3b4a5a',font:{size:9,family:'Roboto'},callback:function(v){return'$'+v+'B';}},grid:{color:'rgba(0,0,0,.06)'}}
+    }
+  }});
+
+  // Tipo donut
+  const tipoCounts=TIPOS_ALL.map(t=>d.filter(r=>r.tipo===t).length);
+  const tipoColors=['#1a3a5c','#e67e22','#27ae60'];
+  document.getElementById('cTtotal').textContent=d.length;
+  dc('cTipo',{type:'doughnut',data:{
+    labels:TIPOS_ALL,
+    datasets:[{data:tipoCounts,backgroundColor:tipoColors,borderColor:'#fff',borderWidth:2,hoverOffset:5}]
+  },options:{
+    responsive:true,maintainAspectRatio:false,cutout:'58%',
+    plugins:{legend:{position:'bottom',labels:{color:'#3b4a5a',font:{size:9,family:'Roboto'},padding:6,boxWidth:10}}}
+  }});
+
+  // Vigencia status bars
+  const vigEl=document.getElementById('vigStatus');
+  const total=d.length||1;
+  vigEl.innerHTML=VIGS_ALL.map((v,i)=>{
+    const cnt=d.filter(r=>r.vigencia===v).length;
+    const pct=Math.round(cnt/total*100);
+    const colors=['#1a3a5c','#2e75b6','#27ae60'];
+    return `<div class="status-row">
+      <span class="status-lbl">${v}</span>
+      <div style="flex:1;height:20px;background:#e8f0f8;border-radius:2px;border:1px solid #c8d6e5;overflow:hidden">
+        <div style="width:${pct}%;height:100%;background:${colors[i]||'#888'};display:flex;align-items:center;padding-left:6px">
+          <span style="font-size:.6rem;font-weight:700;color:#fff;white-space:nowrap">${cnt} (${pct}%)</span>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+
+  // Unit summary table
+  const unitEl=document.getElementById('unitTable');
+  unitEl.innerHTML=`<thead><tr>
+    <th>Unidad</th><th>CXP</th><th>Res.</th><th>Liq.</th>
+  </tr></thead><tbody>`+UN_ALL.map(u=>{
+    const ud=d.filter(r=>r.unidad===u);
+    if(!ud.length)return'';
+    return`<tr>
+      <td><strong>${u}</strong></td>
+      <td class="num-blue">${ud.filter(r=>r.tipo==='CXP').length}</td>
+      <td class="num-red">${ud.filter(r=>r.tipo==='Reservas').length}</td>
+      <td style="color:#27ae60;font-weight:700">${ud.filter(r=>r.tipo==='Liquidaciones').length}</td>
+    </tr>`;
+  }).join('')+'</tbody>';
+}
+
+function render(){
+  const data=tabData();
+  document.getElementById('rowCnt').textContent=data.length+' registros';
+  const tb=document.getElementById('tb');
+  if(!data.length){tb.innerHTML='<tr><td colspan="20" style="text-align:center;padding:2rem;color:#8a9aaa">Sin resultados para los filtros aplicados</td></tr>';return;}
+  const bi=t=>t==='CXP'?'b-cxp':t==='Reservas'?'b-res':'b-liq';
+  const pctColor=p=>p>75?'color:#27ae60;font-weight:700':p>40?'color:#e67e22;font-weight:700':'color:#8a9aaa';
+  tb.innerHTML=data.map(r=>`<tr onclick="openM(${D.indexOf(r)})">
+    <td><span class="badge ${bi(r.tipo)}">${r.tipo}</span></td>
+    <td class="tdim">${r.vigencia}</td>
+    <td><strong>${r.unidad}</strong></td>
+    <td class="mono" style="font-size:.61rem">${r.contrato}</td>
+    <td class="tdim" style="max-width:170px;overflow:hidden;text-overflow:ellipsis" title="${r.supervisor}">${r.supervisor||'—'}</td>
+    <td class="tdim" style="max-width:170px;overflow:hidden;text-overflow:ellipsis" title="${r.nuevo_supervisor}">${r.nuevo_supervisor||'—'}</td>
+    <td style="max-width:270px;overflow:hidden;text-overflow:ellipsis" title="${r.objeto}">${r.objeto||'—'}</td>
+    <td class="tdim mono">${r.plazo_ejecucion||'—'}</td>
+    <td class="mono tr">${fmtCOP(r.valor_contrato)}</td>
+    <td class="mono tr">${fmtCOP(r.valor_cxp)}</td>
+    <td class="mono tr">${fmtCOP(r.valor_reserva)}</td>
+    <td class="mono tr">${fmtCOP(r.valor_ejecutado)}</td>
+    <td class="mono tr">${fmtCOP(r.valor_pendiente)}</td>
+    <td class="mono tr" style="${pctColor(r.porcentaje_ejecucion)}">${r.porcentaje_ejecucion?r.porcentaje_ejecucion.toFixed(1)+'%':'—'}</td>
+    <td class="tdim mono">${r.fecha_prorroga||'—'}</td>
+    <td style="max-width:150px;overflow:hidden;text-overflow:ellipsis" title="${r.empresa}">${r.empresa||'—'}</td>
+    <td class="tdim" style="max-width:250px;overflow:hidden;text-overflow:ellipsis;font-size:.62rem" title="${r.ultima_actuacion}">${r.ultima_actuacion||'—'}</td>
+    <td class="mono tr">${r.cantidad||'—'}</td>
+    <td class="tdim mono">${r.fecha_corte||'—'}</td>
+    <td class="tdim" style="max-width:190px;overflow:hidden;text-overflow:ellipsis;font-size:.62rem" title="${r.observaciones}">${r.observaciones||'—'}</td>
+  </tr>`).join('');
+}
+
+function srt(col){
+  const ths=document.querySelectorAll('thead th');
+  if(sc===col)sd*=-1;else{sc=col;sd=1;}
+  ths.forEach(th=>{th.classList.remove('sa','sd');if(th.getAttribute('onclick')===`srt('${col}')`)th.classList.add(sd===1?'sa':'sd');});
+  doSort();render();
+}
+function doSort(){
+  fil.sort((a,b)=>{
+    let av=a[sc],bv=b[sc];
+    if(!av&&!bv)return 0;if(!av)return 1;if(!bv)return-1;
+    return(typeof av==='number'?av-bv:String(av).localeCompare(String(bv)))*sd;
+  });
+}
+
+function openM(i){
+  const r=D[i];
+  const bi=r.tipo==='CXP'?'b-cxp':r.tipo==='Reservas'?'b-res':'b-liq';
+  const sv=r.valor_cxp||r.valor_reserva;
+  const pct=r.valor_contrato&&sv?Math.min(100,(sv/r.valor_contrato*100)).toFixed(1):null;
+  document.getElementById('mT').textContent=r.contrato||'Detalle';
+  document.getElementById('mB').innerHTML=`
+  <div class="dg">
+    <div class="di"><label>Tipo</label><div class="dv"><span class="badge ${bi}">${r.tipo}</span></div></div>
+    <div class="di"><label>Vigencia</label><div class="dv">${r.vigencia}</div></div>
+    <div class="di"><label>Unidad</label><div class="dv"><strong>${r.unidad}</strong></div></div>
+    <div class="di"><label>Cantidad</label><div class="dv">${r.cantidad||'—'}</div></div>
+    <div class="di full"><label>Contrato</label><div class="dv mono">${r.contrato}</div></div>
+    <div class="di full"><label>Objeto</label><div class="dv">${r.objeto||'—'}</div></div>
+    <div class="dsep"></div>
+    <div class="di"><label>Supervisor</label><div class="dv">${r.supervisor||'—'}</div></div>
+    <div class="di"><label>Nuevo Supervisor</label><div class="dv">${r.nuevo_supervisor||'—'}</div></div>
+    <div class="di"><label>Empresa</label><div class="dv">${r.empresa||'—'}</div></div>
+    <div class="di"><label>Plazo Ejecución</label><div class="dv mono">${r.plazo_ejecucion||'—'}</div></div>
+    <div class="di"><label>Fecha Prórroga</label><div class="dv mono">${r.fecha_prorroga||'—'}</div></div>
+    <div class="di"><label>Fecha Corte</label><div class="dv mono">${r.fecha_corte||'—'}</div></div>
+    <div class="dsep"></div>
+    <div class="di"><label>Valor Contrato</label><div class="dv mono" style="color:var(--navy);font-weight:700">${fmtCOP(r.valor_contrato)}</div></div>
+    <div class="di"><label>${r.tipo==='CXP'?'Valor CXP':'Valor Reserva'}</label><div class="dv mono">${fmtCOP(sv)}</div></div>
+    <div class="di"><label>Valor Ejecutado</label><div class="dv mono">${fmtCOP(r.valor_ejecutado)}</div></div>
+    <div class="di"><label>Valor Pendiente</label><div class="dv mono">${fmtCOP(r.valor_pendiente)}</div></div>
+    ${pct?`<div class="di full"><label>% Ejecución Financiera</label>
+      <div class="pb"><div class="pf" style="width:${pct}%;background:${+pct>75?'#27ae60':+pct>40?'#e67e22':'#c0392b'}"></div></div>
+      <div style="font-size:.65rem;color:var(--mu);margin-top:.3rem">${pct}% ejecutado</div></div>`:''}
+    ${r.ultima_actuacion?`<div class="dsep"></div><div class="di full"><label>Última Actuación</label><div class="dv" style="font-size:.72rem;line-height:1.6;color:var(--mu)">${r.ultima_actuacion}</div></div>`:''}
+    ${r.observaciones&&!r.observaciones.startsWith('Archivo')?`<div class="di full"><label>Observaciones</label><div class="dv" style="font-size:.7rem;line-height:1.5;color:var(--mu)">${r.observaciones}</div></div>`:''}
+  </div>`;
+  document.getElementById('ov').classList.add('open');
+}
+
+document.addEventListener('keydown',e=>{if(e.key==='Escape')document.getElementById('ov').classList.remove('open');});
+
+const tw=document.getElementById('tw'),shL=document.getElementById('shL'),shR=document.getElementById('shR'),sb=document.getElementById('sbBtn');
+tw.addEventListener('scroll',()=>{
+  const s=tw.scrollLeft,m=tw.scrollWidth-tw.clientWidth;
+  shL.classList.toggle('visible',s>30);
+  shR.classList.toggle('visible',s<m-30);
+  sb.classList.toggle('show',s>100);
+});
+
+function csv(){
+  const d=tabData();
+  if(!d.length)return;
+  const h=Object.keys(d[0]);
+  const rows=d.map(r=>h.map(k=>{const v=String(r[k]??'');return v.includes(',')||v.includes('"')?'"'+v.replace(/"/g,'""')+'"':v;}));
+  const blob=new Blob([[h,...rows].map(r=>r.join(',')).join('\n')],{type:'text/csv;charset=utf-8;'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);
+  a.download='BRIAV32_'+new Date().toISOString().slice(0,10)+'.csv';a.click();
+}
+
+poblar();go();
+setTimeout(()=>{if(tw.scrollWidth-tw.clientWidth>10)shR.classList.add('visible');},400);
+</script>
+</body>
+</html>
